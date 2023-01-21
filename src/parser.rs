@@ -1,5 +1,12 @@
 use super::ast::*;
-use nom::{branch::*, character::complete::*, combinator::*, multi::*, sequence::*, IResult};
+use nom::{
+    branch::alt,
+    character::complete::{char, digit1, multispace0},
+    combinator::{eof, map},
+    multi::many0,
+    sequence::{delimited, preceded, terminated, tuple},
+    IResult,
+};
 
 pub fn parse(input: &str) -> IResult<&str, Expr> {
     terminated(expr, tuple((multispace0, eof)))(input)
@@ -80,8 +87,8 @@ fn primary(s: &str) -> IResult<&str, Expr> {
 }
 
 fn number(s: &str) -> IResult<&str, Expr> {
-    map(preceded(multispace0, i32), |val: i32| {
-        Number::I32(val).to_expr()
+    map(preceded(multispace0, digit1), |val: &str| {
+        Number::I32(val.parse::<i32>().unwrap()).to_expr()
     })(s)
 }
 
