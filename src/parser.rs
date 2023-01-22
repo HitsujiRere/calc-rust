@@ -1,10 +1,11 @@
 use super::ast::*;
 use nom::{
     branch::alt,
-    character::complete::{char, digit1, multispace0},
-    combinator::{eof, map},
+    bytes::complete::tag,
+    character::complete::{alpha1, alphanumeric1, char, digit1, multispace0},
+    combinator::{eof, map, recognize},
     multi::many0,
-    sequence::{delimited, preceded, terminated, tuple},
+    sequence::{delimited, pair, preceded, terminated, tuple},
     IResult,
 };
 
@@ -12,12 +13,13 @@ pub fn parse(input: &str) -> IResult<&str, Expr> {
     terminated(expr, tuple((multispace0, eof)))(input)
 }
 
-// expr     = add
-// add      = mul ( ( "+" | "-" ) add )?
-// mul      = unary ( ( "*" | "/" ) mul )?
-// unary    = "-" primary | primary
-// primary  = "(" expr ")" | number
-// number   = i32
+// expr         = add
+// add          = mul ( ( "+" | "-" ) add )?
+// mul          = unary ( ( "*" | "/" ) mul )?
+// unary        = "-" primary | primary
+// primary      = "(" expr ")" | number | identifier
+// number       = [0-9]+
+// identifier   = [a-zA-Z_] [0-9a-zA-Z_]*
 
 fn expr(s: &str) -> IResult<&str, Expr> {
     add(s)
@@ -83,6 +85,7 @@ fn primary(s: &str) -> IResult<&str, Expr> {
             |expr| expr,
         ),
         number,
+        identifier,
     ))(s)
 }
 
@@ -90,6 +93,16 @@ fn number(s: &str) -> IResult<&str, Expr> {
     map(preceded(multispace0, digit1), |val: &str| {
         Number::I32(val.parse::<i32>().unwrap()).to_expr()
     })(s)
+}
+
+fn identifier(s: &str) -> IResult<&str, Expr> {
+    map(
+        recognize(pair(
+            alt((alpha1, tag("_"))),
+            many0(alt((alphanumeric1, tag("_")))),
+        )),
+        |ident: &str| Ident::new(ident.to_string()).to_expr_var(),
+    )(s)
 }
 
 #[cfg(test)]
@@ -215,5 +228,17 @@ mod tests {
             number("a7"),
             Err(Err::Error(error::Error::new("a7", error::ErrorKind::Digit)))
         );
+    }
+
+    #[test]
+    fn parse_identifier() {
+        assert_eq!(
+            identifier("abc"),
+            Ok(("", Ident::new("abc".to_string()).to_expr_var()))
+        );
+        assert_eq!(
+            identifier("_abc012A_BC"),
+            Ok(("", Ident::new("_abc012A_BC".to_string()).to_expr_var()))
+        )
     }
 }

@@ -11,7 +11,10 @@ fn main() {
         let mut input = String::new();
         stdin().read_line(&mut input).ok();
         match parser::parse(&input) {
-            Ok((_, expr)) => println!("{}", evaler.eval(&expr)),
+            Ok((_, expr)) => match evaler.eval(&expr) {
+                Ok(res) => println!("> {}", res),
+                Err(err) => println!("> {}", err),
+            },
             _ => println!("Syntax Error!"),
         }
     }

@@ -1,21 +1,40 @@
 use super::ast::*;
+use std::collections::HashMap;
+use thiserror::Error;
 
-pub struct Evaler {}
+#[derive(Error, Debug, PartialEq)]
+pub enum EvalError {
+    #[error("variable '{0}' is not defined")]
+    NotDefinedVariable(String),
+}
+
+pub struct Evaler {
+    vars: HashMap<Ident, Box<Expr>>,
+}
 
 impl Evaler {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            vars: HashMap::from([(
+                Ident::new("x".to_string()),
+                Box::new(Number::I32(7).to_expr()),
+            )]),
+        }
     }
 
-    pub fn eval(&self, expr: &Expr) -> i32 {
+    pub fn eval(&self, expr: &Expr) -> Result<i32, EvalError> {
         use Expr::*;
         match expr {
-            Number(val) => val.eval(),
-            Minus(val) => -self.eval(val),
-            Add { left, right } => self.eval(left) + self.eval(right),
-            Sub { left, right } => self.eval(left) - self.eval(right),
-            Mul { left, right } => self.eval(left) * self.eval(right),
-            Div { left, right } => self.eval(left) / self.eval(right),
+            Number(val) => Ok(val.eval()),
+            Minus(val) => Ok(-self.eval(val)?),
+            Add { left, right } => Ok(self.eval(left)? + self.eval(right)?),
+            Sub { left, right } => Ok(self.eval(left)? - self.eval(right)?),
+            Mul { left, right } => Ok(self.eval(left)? * self.eval(right)?),
+            Div { left, right } => Ok(self.eval(left)? / self.eval(right)?),
+            Var(ident) => match self.vars.get(ident) {
+                Some(expr) => self.eval(expr),
+                None => Err(EvalError::NotDefinedVariable(ident.to_string())),
+            },
         }
     }
 }
@@ -25,19 +44,22 @@ mod tests {
     use super::*;
 
     impl Expr {
-        fn eval(&self) -> i32 {
+        fn eval(&self) -> Result<i32, EvalError> {
             Evaler::new().eval(self)
         }
     }
 
     #[test]
     fn eval_number() {
-        assert_eq!(Expr::Number(Box::new(Number::I32(7))).eval(), 7);
+        assert_eq!(Expr::Number(Box::new(Number::I32(7))).eval(), Ok(7));
     }
 
     #[test]
     fn eval_minus() {
-        assert_eq!(Expr::Minus(Box::new(Number::I32(7).to_expr())).eval(), -7);
+        assert_eq!(
+            Expr::Minus(Box::new(Number::I32(7).to_expr())).eval(),
+            Ok(-7)
+        );
     }
 
     #[test]
@@ -48,7 +70,7 @@ mod tests {
                 right: Box::new(Number::I32(2).to_expr())
             }
             .eval(),
-            7
+            Ok(7)
         );
     }
 
@@ -60,7 +82,7 @@ mod tests {
                 right: Box::new(Number::I32(2).to_expr())
             }
             .eval(),
-            3
+            Ok(3)
         );
     }
 
@@ -72,7 +94,7 @@ mod tests {
                 right: Box::new(Number::I32(5).to_expr())
             }
             .eval(),
-            10
+            Ok(10)
         );
     }
 
@@ -84,7 +106,16 @@ mod tests {
                 right: Box::new(Number::I32(2).to_expr())
             }
             .eval(),
-            3
+            Ok(3)
+        );
+    }
+
+    #[test]
+    fn eval_var() {
+        assert_eq!(Ident::new("x".to_string()).to_expr_var().eval(), Ok(7));
+        assert_eq!(
+            Ident::new("y".to_string()).to_expr_var().eval(),
+            Err(EvalError::NotDefinedVariable("y".to_string()))
         );
     }
 }
