@@ -9,4 +9,5 @@ pub enum Expr {
     Mul { left: Box<Expr>, right: Box<Expr> },
     Div { left: Box<Expr>, right: Box<Expr> },
     Var(Box<Ident>),
+    Assign { left: Box<Expr>, right: Box<Expr> },
 }

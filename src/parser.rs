@@ -13,16 +13,31 @@ pub fn parse(input: &str) -> IResult<&str, Expr> {
     terminated(expr, tuple((multispace0, eof)))(input)
 }
 
-// expr         = add
-// add          = mul ( ( "+" | "-" ) add )?
-// mul          = unary ( ( "*" | "/" ) mul )?
+// expr         = assign
+// assign       = add ( "=" assign )?
+// add          = mul ( ( "+" | "-" ) mul )*
+// mul          = unary ( ( "*" | "/" ) unary )*
 // unary        = "-" primary | primary
 // primary      = "(" expr ")" | number | identifier
 // number       = [0-9]+
 // identifier   = [a-zA-Z_] [0-9a-zA-Z_]*
 
 fn expr(s: &str) -> IResult<&str, Expr> {
-    add(s)
+    assign(s)
+}
+
+fn assign(s: &str) -> IResult<&str, Expr> {
+    let (s, left) = add(s)?;
+    match preceded(pair(multispace0, char('=')), assign)(s) {
+        Ok((s, right)) => Ok((
+            s,
+            Expr::Assign {
+                left: Box::new(left),
+                right: Box::new(right),
+            },
+        )),
+        _ => Ok((s, left)),
+    }
 }
 
 fn add(s: &str) -> IResult<&str, Expr> {
@@ -141,6 +156,39 @@ mod tests {
                         }))),
                         right: Box::new(Number::I32(5).to_expr())
                     }),
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn parse_assign() {
+        assert_eq!(
+            assign("x = 7"),
+            Ok((
+                "",
+                Expr::Assign {
+                    left: Box::new(Ident::new("x".to_string()).to_expr_var()),
+                    right: Box::new(Number::I32(7).to_expr())
+                }
+            ))
+        );
+        assert_eq!(
+            assign("x = 1 + ( y = 7 ) * 2"),
+            Ok((
+                "",
+                Expr::Assign {
+                    left: Box::new(Ident::new("x".to_string()).to_expr_var()),
+                    right: Box::new(Expr::Add {
+                        left: Box::new(Number::I32(1).to_expr()),
+                        right: Box::new(Expr::Mul {
+                            left: Box::new(Expr::Assign {
+                                left: Box::new(Ident::new("y".to_string()).to_expr_var()),
+                                right: Box::new(Number::I32(7).to_expr())
+                            }),
+                            right: Box::new(Number::I32(2).to_expr())
+                        })
+                    })
                 }
             ))
         );

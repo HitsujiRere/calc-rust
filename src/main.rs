@@ -5,7 +5,7 @@ mod parser;
 use std::io::stdin;
 
 fn main() {
-    let evaler = evaler::Evaler::new();
+    let mut evaler = evaler::Evaler::new();
 
     loop {
         let mut input = String::new();

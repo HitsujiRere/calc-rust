@@ -6,23 +6,22 @@ use thiserror::Error;
 pub enum EvalError {
     #[error("variable '{0}' is not defined")]
     NotDefinedVariable(String),
+    #[error("cannot assign to '{0}'")]
+    CannotAssign(String),
 }
 
 pub struct Evaler {
-    vars: HashMap<Ident, Box<Expr>>,
+    vars: HashMap<Ident, i32>,
 }
 
 impl Evaler {
     pub fn new() -> Self {
         Self {
-            vars: HashMap::from([(
-                Ident::new("x".to_string()),
-                Box::new(Number::I32(7).to_expr()),
-            )]),
+            vars: HashMap::from([(Ident::new("x".to_string()), 7)]),
         }
     }
 
-    pub fn eval(&self, expr: &Expr) -> Result<i32, EvalError> {
+    pub fn eval(&mut self, expr: &Expr) -> Result<i32, EvalError> {
         use Expr::*;
         match expr {
             Number(val) => Ok(val.eval()),
@@ -32,9 +31,18 @@ impl Evaler {
             Mul { left, right } => Ok(self.eval(left)? * self.eval(right)?),
             Div { left, right } => Ok(self.eval(left)? / self.eval(right)?),
             Var(ident) => match self.vars.get(ident) {
-                Some(expr) => self.eval(expr),
+                Some(expr) => Ok(*expr),
                 None => Err(EvalError::NotDefinedVariable(ident.to_string())),
             },
+            Assign { left, right } => {
+                if let Expr::Var(ident) = left.as_ref() {
+                    let right_val = self.eval(right)?;
+                    self.vars.insert(ident.as_ref().clone(), right_val);
+                    Ok(right_val)
+                } else {
+                    Err(EvalError::CannotAssign(format!("{:?}", left)))
+                }
+            }
         }
     }
 }
