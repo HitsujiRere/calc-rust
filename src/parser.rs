@@ -201,8 +201,9 @@ mod tests {
 
     #[test]
     fn parse_primary() {
-        assert_eq!(unary("( 7 )"), Ok(("", Number::I32(7).to_expr())));
-        assert_eq!(unary("( ( 7 ) )"), Ok(("", Number::I32(7).to_expr())));
+        assert_eq!(primary("( 7 )"), Ok(("", Number::I32(7).to_expr())));
+        assert_eq!(primary("( ( 7 ) )"), Ok(("", Number::I32(7).to_expr())));
+        assert_eq!(primary("( ( 7 ) )"), Ok(("", Number::I32(7).to_expr())));
     }
 
     #[test]
