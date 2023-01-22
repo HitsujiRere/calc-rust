@@ -9,10 +9,8 @@ impl Number {
     pub fn to_expr(self) -> Expr {
         Expr::Number(Box::new(self))
     }
-}
 
-impl Eval for Number {
-    fn eval(&self) -> i32 {
+    pub fn eval(&self) -> i32 {
         use Number::*;
         match self {
             I32(val) => *val,
@@ -23,6 +21,14 @@ impl Eval for Number {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn number_to_expr() {
+        assert_eq!(
+            Number::I32(7).to_expr(),
+            Expr::Number(Box::new(Number::I32(7)))
+        );
+    }
 
     #[test]
     fn eval_number() {
