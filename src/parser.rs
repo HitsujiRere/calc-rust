@@ -4,13 +4,14 @@ use nom::{
     bytes::complete::tag,
     character::complete::{alpha1, alphanumeric1, char, digit1, multispace0},
     combinator::{eof, map, recognize},
+    error::ParseError,
     multi::many0,
-    sequence::{delimited, pair, preceded, terminated, tuple},
+    sequence::{delimited, pair, preceded, terminated},
     IResult,
 };
 
 pub fn parse(input: &str) -> IResult<&str, Expr> {
-    terminated(expr, tuple((multispace0, eof)))(input)
+    terminated(expr, pair(multispace0, eof))(input)
 }
 
 // expr         = assign
@@ -42,10 +43,7 @@ fn assign(s: &str) -> IResult<&str, Expr> {
 
 fn add(s: &str) -> IResult<&str, Expr> {
     let (s, head) = mul(s)?;
-    let (s, tails) = many0(tuple((
-        preceded(multispace0, alt((char('+'), char('-')))),
-        mul,
-    )))(s)?;
+    let (s, tails) = many0(pair(ws(alt((char('+'), char('-')))), mul))(s)?;
     let expr = tails.into_iter().fold(head, |left, (ch, right)| match ch {
         '+' => Expr::Add {
             left: Box::new(left),
@@ -62,10 +60,7 @@ fn add(s: &str) -> IResult<&str, Expr> {
 
 fn mul(s: &str) -> IResult<&str, Expr> {
     let (s, head) = unary(s)?;
-    let (s, tails) = many0(tuple((
-        preceded(multispace0, alt((char('*'), char('/')))),
-        unary,
-    )))(s)?;
+    let (s, tails) = many0(pair(ws(alt((char('*'), char('/')))), unary))(s)?;
     let expr = tails.into_iter().fold(head, |left, (ch, right)| match ch {
         '*' => Expr::Mul {
             left: Box::new(left),
@@ -82,7 +77,7 @@ fn mul(s: &str) -> IResult<&str, Expr> {
 
 fn unary(s: &str) -> IResult<&str, Expr> {
     alt((
-        map(preceded(tuple((multispace0, char('-'))), primary), |expr| {
+        map(preceded(pair(multispace0, char('-')), primary), |expr| {
             Expr::Minus(Box::new(expr))
         }),
         primary,
@@ -91,36 +86,35 @@ fn unary(s: &str) -> IResult<&str, Expr> {
 
 fn primary(s: &str) -> IResult<&str, Expr> {
     alt((
-        map(
-            delimited(
-                preceded(multispace0, char('(')),
-                expr,
-                preceded(multispace0, char(')')),
-            ),
-            |expr| expr,
-        ),
+        map(delimited(ws(char('(')), expr, ws(char(')'))), |expr| expr),
         number,
         identifier,
     ))(s)
 }
 
 fn number(s: &str) -> IResult<&str, Expr> {
-    map(preceded(multispace0, digit1), |val: &str| {
+    map(ws(digit1), |val: &str| {
         Number::I32(val.parse::<i32>().unwrap()).to_expr()
     })(s)
 }
 
 fn identifier(s: &str) -> IResult<&str, Expr> {
     map(
-        preceded(
-            multispace0,
-            recognize(pair(
-                alt((alpha1, tag("_"))),
-                many0(alt((alphanumeric1, tag("_")))),
-            )),
-        ),
+        ws(recognize(pair(
+            alt((alpha1, tag("_"))),
+            many0(alt((alphanumeric1, tag("_")))),
+        ))),
         |ident: &str| Ident::new(ident.to_string()).to_expr_var(),
     )(s)
+}
+
+fn ws<'a, F: 'a, O, E: ParseError<&'a str>>(
+    inner: F,
+) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
+where
+    F: FnMut(&'a str) -> IResult<&'a str, O, E>,
+{
+    preceded(multispace0, inner)
 }
 
 #[cfg(test)]
