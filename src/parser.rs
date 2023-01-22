@@ -97,10 +97,13 @@ fn number(s: &str) -> IResult<&str, Expr> {
 
 fn identifier(s: &str) -> IResult<&str, Expr> {
     map(
-        recognize(pair(
-            alt((alpha1, tag("_"))),
-            many0(alt((alphanumeric1, tag("_")))),
-        )),
+        preceded(
+            multispace0,
+            recognize(pair(
+                alt((alpha1, tag("_"))),
+                many0(alt((alphanumeric1, tag("_")))),
+            )),
+        ),
         |ident: &str| Ident::new(ident.to_string()).to_expr_var(),
     )(s)
 }
