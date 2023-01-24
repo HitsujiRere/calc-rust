@@ -3,7 +3,7 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{alpha1, alphanumeric1, char, digit1, multispace0},
-    combinator::{eof, map, recognize},
+    combinator::{eof, map, opt, recognize},
     error::ParseError,
     multi::many0,
     sequence::{delimited, pair, preceded, terminated},
@@ -28,17 +28,19 @@ fn expr(s: &str) -> IResult<&str, Expr> {
 }
 
 fn assign(s: &str) -> IResult<&str, Expr> {
-    let (s, left) = add(s)?;
-    match preceded(pair(multispace0, char('=')), assign)(s) {
-        Ok((s, right)) => Ok((
-            s,
-            Expr::Assign {
-                left: Box::new(left),
-                right: Box::new(right),
-            },
-        )),
-        _ => Ok((s, left)),
-    }
+    map(
+        pair(add, opt(preceded(pair(multispace0, char('=')), assign))),
+        |(left, right)| {
+            if let Some(right) = right {
+                Expr::Assign {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                }
+            } else {
+                left
+            }
+        },
+    )(s)
 }
 
 fn add(s: &str) -> IResult<&str, Expr> {
