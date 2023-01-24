@@ -17,7 +17,7 @@ pub struct Evaler {
 impl Evaler {
     pub fn new() -> Self {
         Self {
-            vars: HashMap::from([(Ident::new("x".to_string()), 7)]),
+            vars: HashMap::new(),
         }
     }
 
@@ -120,7 +120,20 @@ mod tests {
 
     #[test]
     fn eval_var() {
-        assert_eq!(Ident::new("x".to_string()).to_expr_var().eval(), Ok(7));
+        {
+            let mut evaler = Evaler::new();
+            assert_eq!(
+                evaler.eval(&Expr::Assign {
+                    left: Box::new(Ident::new("x".to_string()).to_expr_var()),
+                    right: Box::new(Number::I32(7).to_expr())
+                }),
+                Ok(7)
+            );
+            assert_eq!(
+                evaler.eval(&Ident::new("x".to_string()).to_expr_var()),
+                Ok(7)
+            );
+        }
         assert_eq!(
             Ident::new("y".to_string()).to_expr_var().eval(),
             Err(EvalError::NotDefinedVariable("y".to_string()))
